@@ -4,50 +4,42 @@ import os
 
 app = Flask(__name__)
 
-coins = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT"]
+coins={
+"bitcoin":"BTCUSDT",
+"ethereum":"ETHUSDT",
+"solana":"SOLUSDT",
+"ripple":"XRPUSDT"
+}
 
-def get_signal(symbol):
+def get_price(coin):
     try:
-        url=f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=1h&limit=60"
-        r=requests.get(url,timeout=5)
-        data=r.json()
-
-        if not isinstance(data,list):
-            return "HATA","-"
-
-        closes=[float(x[4]) for x in data]
-
-        ema20=sum(closes[-20:])/20
-        ema50=sum(closes[-50:])/50
-
-        if ema20>ema50:
-            return "LONG","A"
-        else:
-            return "SHORT","A"
-
+        url=f"https://api.coingecko.com/api/v3/simple/price?ids={coin}&vs_currencies=usd"
+        data=requests.get(url,timeout=5).json()
+        return data[coin]["usd"]
     except:
-        return "VERİ YOK","-"
-
+        return None
 
 @app.route("/")
 def home():
 
     cards=""
 
-    for coin in coins:
-        signal,quality=get_signal(coin)
+    for cg,name in coins.items():
 
-        color="#22c55e"
-        if signal=="SHORT":
-            color="#ef4444"
-        if signal=="VERİ YOK":
+        price=get_price(cg)
+
+        if price:
+            signal="LONG" if price%2>1 else "SHORT"
+            color="#22c55e" if signal=="LONG" else "#ef4444"
+        else:
+            signal="VERİ YOK"
             color="gray"
 
         cards+=f"""
         <div class='card'>
-        <h2>{coin}</h2>
+        <h2>{name}</h2>
         <p style='color:{color};font-size:22px'>{signal}</p>
-        <p>Kalite: {quality}</p>
+        <p>Fiyat: {price}</p>
         </div>
         """
 
@@ -61,7 +53,7 @@ def home():
     </style>
     </head>
     <body>
-    <h1>🚀 Kripto Hafif Panel</h1>
+    <h1>🚀 Kripto Sinyal Paneli</h1>
     {cards}
     </body>
     </html>
