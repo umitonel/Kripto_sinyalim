@@ -6,46 +6,28 @@ app = Flask(__name__)
 
 coins = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT"]
 
-def ema(values, period):
-    k = 2/(period+1)
-    ema_val = values[0]
-    for price in values:
-        ema_val = price*k + ema_val*(1-k)
-    return ema_val
-
-def rsi(closes, period=14):
-    gains = []
-    losses = []
-
-    for i in range(1,len(closes)):
-        diff = closes[i]-closes[i-1]
-        if diff >=0:
-            gains.append(diff)
-        else:
-            losses.append(abs(diff))
-
-    avg_gain = sum(gains[-period:])/period
-    avg_loss = sum(losses[-period:])/period if losses else 1
-
-    rs = avg_gain/avg_loss
-    return 100-(100/(1+rs))
-
 def get_signal(symbol):
-    url=f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=1h&limit=60"
-    data=requests.get(url).json()
+    try:
+        url=f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=1h&limit=60"
+        r=requests.get(url,timeout=5)
+        data=r.json()
 
-    closes=[float(x[4]) for x in data]
+        if not isinstance(data,list):
+            return "HATA","-"
 
-    ema20=ema(closes[-20:],20)
-    ema50=ema(closes[-50:],50)
-    rsi_val=rsi(closes)
+        closes=[float(x[4]) for x in data]
 
-    if ema20>ema50 and rsi_val>55:
-        return "LONG","A+"
-    elif ema20<ema50 and rsi_val<45:
-        return "SHORT","A+"
-    else:
-        return "BEKLE","-"
+        ema20=sum(closes[-20:])/20
+        ema50=sum(closes[-50:])/50
+
+        if ema20>ema50:
+            return "LONG","A"
+        else:
+            return "SHORT","A"
+
+    except:
+        return "VERİ YOK","-"
+
 
 @app.route("/")
 def home():
@@ -55,8 +37,10 @@ def home():
     for coin in coins:
         signal,quality=get_signal(coin)
 
-        color="#22c55e" if signal=="LONG" else "#ef4444"
-        if signal=="BEKLE":
+        color="#22c55e"
+        if signal=="SHORT":
+            color="#ef4444"
+        if signal=="VERİ YOK":
             color="gray"
 
         cards+=f"""
@@ -77,7 +61,7 @@ def home():
     </style>
     </head>
     <body>
-    <h1>🚀 Hafif Sinyal Paneli</h1>
+    <h1>🚀 Kripto Hafif Panel</h1>
     {cards}
     </body>
     </html>
