@@ -4,42 +4,52 @@ import os
 
 app = Flask(__name__)
 
-coins={
-"bitcoin":"BTCUSDT",
-"ethereum":"ETHUSDT",
-"solana":"SOLUSDT",
-"ripple":"XRPUSDT"
-}
+symbols = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT"]
 
-def get_price(coin):
+def get_signal(symbol):
     try:
-        url=f"https://api.coingecko.com/api/v3/simple/price?ids={coin}&vs_currencies=usd"
-        data=requests.get(url,timeout=5).json()
-        return data[coin]["usd"]
+        url="https://scanner.tradingview.com/crypto/scan"
+
+        payload={
+        "symbols":{"tickers":[f"BINANCE:{symbol}"],"query":{"types":[]}},
+        "columns":["close","EMA20","EMA50","RSI"]
+        }
+
+        r=requests.post(url,json=payload,timeout=5).json()
+
+        data=r["data"][0]["d"]
+
+        close,ema20,ema50,rsi=data
+
+        if ema20>ema50 and rsi>55:
+            return "LONG"
+        elif ema20<ema50 and rsi<45:
+            return "SHORT"
+        else:
+            return "BEKLE"
+
     except:
-        return None
+        return "VERİ YOK"
+
 
 @app.route("/")
 def home():
 
     cards=""
 
-    for cg,name in coins.items():
+    for coin in symbols:
+        signal=get_signal(coin)
 
-        price=get_price(cg)
-
-        if price:
-            signal="LONG" if price%2>1 else "SHORT"
-            color="#22c55e" if signal=="LONG" else "#ef4444"
-        else:
-            signal="VERİ YOK"
+        color="#22c55e"
+        if signal=="SHORT":
+            color="#ef4444"
+        if signal=="VERİ YOK":
             color="gray"
 
         cards+=f"""
         <div class='card'>
-        <h2>{name}</h2>
-        <p style='color:{color};font-size:22px'>{signal}</p>
-        <p>Fiyat: {price}</p>
+        <h2>{coin}</h2>
+        <p style='color:{color};font-size:24px'>{signal}</p>
         </div>
         """
 
@@ -53,7 +63,7 @@ def home():
     </style>
     </head>
     <body>
-    <h1>🚀 Kripto Sinyal Paneli</h1>
+    <h1>🚀 TradingView Sinyal Paneli</h1>
     {cards}
     </body>
     </html>
